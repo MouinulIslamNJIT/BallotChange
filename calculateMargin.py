@@ -15,7 +15,6 @@ def findq(Lv,Lc,a,b):
                 qmin = Lv
     return qmin,qmax
 
-
 def calculateMargin(Lv,Lc,ia,ib,a,b,aq,bq):
     qmin,qmax = findq(Lv,Lc,a,b)
     B1, U, D = findBallotChange(Lv,Lc,ia,ib,qmax,a,b,aq,bq)
@@ -44,3 +43,28 @@ def calculateMargin(Lv,Lc,ia,ib,a,b,aq,bq):
                     B3 = min(Bql,Bqr)
     margin = min(min(B1,B2),B3)
     return margin
+
+
+
+def findq_multi(Lv,Lc,quotas):
+    group_count = [0 for i in quotas]
+    qmin = 0
+    qmax = 0
+    for (c,v) in zip(Lc,Lv):
+        group_count[c] += 1
+        if qmax == 0 and group_count[c] == quotas[c]:
+            qmax = v
+        if qmax != 0 and group_count[c] == quotas[c]:
+            qmin = v
+    return qmin,qmax
+
+
+
+
+
+def calculateMargin_multigroup(Lv,Lc,I,Quotas,QGroups):
+    margin = 0
+
+    return margin
+
+
