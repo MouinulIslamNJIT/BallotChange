@@ -73,7 +73,7 @@ def calculateMargin(Lv,Lc,a,b):
 
 
 def findq_multi(Lv,Lc,portions):
-    group_count = [0 for i in portions]
+    group_count = dict.fromkeys(portions.keys(),0)
     qmin = 0
     qmax = 0
     for (c,v) in zip(Lc,Lv):
@@ -117,5 +117,3 @@ def calculateMargin_multigroup(Lv,Lc,portions):
                 B3 = min(Bql,Bqr)
     print(B1,B2,B3)
     margin = min(min(B1,B2),B3)
-    return margin
-

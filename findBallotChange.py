@@ -1,19 +1,19 @@
-def findBallotChange(Lv,Lc,q,a,b,qmin,qmax):
+def findBallotChange(Lv, Lc, q, a, b, qmin, qmax):
     Bq = 0
     Dq = 0
     Uq = 0
-    Lva = [ i for (i,j) in zip(Lv, Lc) if j == "A"]
+    Lva = [i for (i, j) in zip(Lv, Lc) if j == "A"]
     Lvb = [i for (i, j) in zip(Lv, Lc) if j == "B"]
-    aStar = {q - 1: 0, q : 0, q + 1: 0}
-    bStar = {q - 1: 0, q : 0, q + 1: 0}
+    aStar = {q - 1: 0, q: 0, q + 1: 0}
+    bStar = {q - 1: 0, q: 0, q + 1: 0}
     for (i, j) in zip(Lv, Lc):
         if j == 'A':
-            if i >= q+1:
-                aStar[q+1] += 1
+            if i >= q + 1:
+                aStar[q + 1] += 1
             if i >= q:
                 aStar[q] += 1
-            if i >= q-1:
-                aStar[q-1] += 1
+            if i >= q - 1:
+                aStar[q - 1] += 1
         if j == "B":
             if i >= q + 1:
                 bStar[q + 1] += 1
@@ -22,31 +22,32 @@ def findBallotChange(Lv,Lc,q,a,b,qmin,qmax):
             if i >= q - 1:
                 bStar[q - 1] += 1
     if q == qmin and q == qmax:
-        B1a = a - aStar[q+1] + b - bStar[q+1]
+        B1a = a - aStar[q + 1] + b - bStar[q + 1]
         B1b = aStar[q] - a + bStar[q] - b
-        B1c = max(a - aStar[q+1],aStar[q] - a)
+        B1c = max(a - aStar[q + 1], aStar[q] - a)
         B1d = max(b - bStar[q + 1], bStar[q] - b)
-        Bq = min(min(B1a,B1b),min(B1c,B1d))
-    elif q == qmax and q>qmin:
-        L1_qplus1_a = [i for i in Lva if i<q+1]
-        U1_qplus1 = (q+1) * (a - aStar[q+1]) - sum([L1_qplus1_a[i] for i in range(min(len(L1_qplus1_a),a - aStar[q+1]))])
-        L2_q_a = [i for i in Lva if i<q]
-        U2_q = q * (a - aStar[q]) - sum([L2_q_a[i] for i in range(min(len(L2_q_a),a - aStar[q]))])
-        L1_q_b = [i for i in Lvb if i>=q]
+        Bq = min(min(B1a, B1b), min(B1c, B1d))
+    elif q == qmax and q > qmin:
+        L1_qplus1_a = [i for i in Lva if i < q + 1]
+        U1_qplus1 = (q + 1) * (a - aStar[q + 1]) - sum(
+            [L1_qplus1_a[i] for i in range(min(len(L1_qplus1_a), a - aStar[q + 1]))])
+        L2_q_a = [i for i in Lva if i < q]
+        U2_q = q * (a - aStar[q]) - sum([L2_q_a[i] for i in range(min(len(L2_q_a), a - aStar[q]))])
+        L1_q_b = [i for i in Lvb if i >= q]
         L1_q_b.sort()
-        Dq = sum([L1_q_b[i] for i in range(min(len(L1_q_b),bStar[q]-b))])-((q-1)*(bStar[q]-b))
-        Bq = min(U1_qplus1,max(U2_q,Dq))
-    elif q >= qmin and q<qmax:
-        L_q_a = [i for i in Lva if i<q]
+        Dq = sum([L1_q_b[i] for i in range(min(len(L1_q_b), bStar[q] - b))]) - ((q - 1) * (bStar[q] - b))
+        Bq = min(U1_qplus1, max(U2_q, Dq))
+    elif q >= qmin and q < qmax:
+        L_q_a = [i for i in Lva if i < q]
         if a > aStar[q]:
-            Uq = q * (a - aStar[q]) - sum([L_q_a[i] for i in range(min(len(L_q_a),a - aStar[q]))])
+            Uq = q * (a - aStar[q]) - sum([L_q_a[i] for i in range(min(len(L_q_a), a - aStar[q]))])
         else:
             Uq = 0
-        L_q_b = [i for i in Lvb if i>=q]
+        L_q_b = [i for i in Lvb if i >= q]
         L_q_b.sort()
-        Dq = sum([L_q_b[i] for i in range(min(len(L_q_b),bStar[q] - b))]) - ((q-1) * (bStar[q] - b))
-        Bq = max(Uq,Dq)
-    return Bq,Uq,Dq
+        Dq = sum([L_q_b[i] for i in range(min(len(L_q_b), bStar[q] - b))]) - ((q - 1) * (bStar[q] - b))
+        Bq = max(Uq, Dq)
+    return Bq, Uq, Dq
 
 
 def FindBallotChangeMulti(Lv, Lc, a, q):
@@ -127,5 +128,3 @@ def FindBallotChangeMulti(Lv, Lc, a, q):
         Uq = Uq_ties
         Bq = ballotChange_ties
     return Bq, Uq, Dq
-
-
