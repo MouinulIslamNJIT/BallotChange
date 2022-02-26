@@ -73,7 +73,7 @@ def calculateMargin(Lv,Lc,a,b):
 
 
 def findq_multi(Lv,Lc,portions):
-    group_count = dict.fromkeys(portions.keys(),0)
+    group_count = [0 for i in portions]
     qmin = 0
     qmax = 0
     for (c,v) in zip(Lc,Lv):
