@@ -3,33 +3,11 @@ from findBallotChange import *
 from calculateMargin import *
 from itertools import permutations
 
+from array import *
+import gurobipy as gp
+from gurobipy import GRB
+import math
 
-def diverse_top_k(I: list[list], K: int, d: list, portion: dict):  # I contains the all items with their category value;
-    topk = []
-    Lv = [x[0] for x in I]
-    Lc = [x[1] for x in I]
-    C = dict.fromkeys(d, 0)
-    slack = K - sum([np.floor(i) for i in portion.values()])
-    iter = 0
-    while (len(topk) < K):
-        x = I[iter]
-        iter += 1
-        i = x[1]
-        if C[i] < np.floor(portion[i]):
-            topk.append(x)
-            C[i] += 1
-        elif (C[i] < np.ceil(portion[i]) and slack > 0):
-            topk.append(x)
-            C[i] += 1
-            slack -= 1
-    return Lv, Lc, C
-
-
-def calculateBallotChange_selectTopK(I: list[list], K: int, d: list, portion: dict):
-    Lv, Lc, new_portion = diverse_top_k(I, K, d, portion)
-    margin = calculateMargin_multigroup(Lv, Lc, new_portion)
-    BallotChange, _, _ = FindBallotChangeMulti(Lv, Lc, new_portion, margin)
-    return BallotChange
 
 
 def dfs(i, attrDict, k, featureLists, portions):
@@ -59,8 +37,8 @@ def dfs(i, attrDict, k, featureLists, portions):
 #     return
 
 
-def cartesianProductCreatorDiverseTopK(I: list[list], portion: list[dict], k: int):
-    newI = []
+def cartesianProductCreatorDiverseTopK(Lv,Lc, portion, k):
+    newLc = []
     attrDict = [[] for i in portion]
     for index, i in enumerate(portion):
         for j in i.keys():
@@ -68,13 +46,13 @@ def cartesianProductCreatorDiverseTopK(I: list[list], portion: list[dict], k: in
                 attrDict[index].append(j)
     portions = []
     dfs(0, attrDict, k, [], portions)
-    for i in I:
-        newAttribute = tuple(i[1:])
-        newI.append([i[0], newAttribute])
-    return newI, portions
+    for i,j in zip(Lv,Lc):
+        newAttribute = tuple(j)
+        newLc.append(newAttribute)
+    return newLc, portions
 
 
-def cartesianProductCreatorBallotChange(Lv, Lc, portion: list[dict], k: int):
+def cartesianProductCreatorBallotChange(Lv, Lc, portion, k):
     newLc = []
     attrDict = [[] for i in portion]
     for index, i in enumerate(portion):
@@ -89,8 +67,8 @@ def cartesianProductCreatorBallotChange(Lv, Lc, portion: list[dict], k: int):
     return newLc, portions
 
 
-def cartesianProductDiverseTopK(I: list[list], K: int, portion: list[dict]):
-    newI, newPortions = cartesianProductCreatorDiverseTopK(I, portion, K)
+def cartesianProductDiverseTopK(Lv,Lc, K, portion):
+    newLc, newPortions = cartesianProductCreatorDiverseTopK(Lv,Lc, portion, K)
     best_ballot_change = int('inf')
     for portion in newPortions:
         newPortion = {}
@@ -99,8 +77,7 @@ def cartesianProductDiverseTopK(I: list[list], K: int, portion: list[dict]):
                 newPortion[i] += 1
             else:
                 newPortion[i] = 1
-        newD = list(newPortion.keys())
-        ballot_change = calculateBallotChange_selectTopK(newI, K, newD, newPortion)
+        ballot_change = calculateMargin_selectTopK(Lv,newLc, K, newPortion)
         best_ballot_change = min(ballot_change, best_ballot_change)
     return best_ballot_change
 
@@ -118,3 +95,43 @@ def cartesianProductBallotChange(Lv, Lc, k, portion):
         ballot_change = calculateMargin_multigroup(Lv, newLc, new_portion)
         best_ballot_change = min(ballot_change, best_ballot_change)
     return best_ballot_change
+
+def findBallotChangeMultiMore(Lv, Lc, k, portion, t):
+    n = len(Lv)
+    # calculate weights
+    D_cost = []
+    U_cost = []
+    for v in Lv:
+        if (v >= t):
+            D_cost.append(v - t + 1)
+            U_cost.append(0)
+        else:
+            D_cost.append(0)
+            U_cost.append(t - v)
+
+    # define model
+    model = gp.Model("margin")
+
+    # add variables
+    x = model.addVars(n, vtype=GRB.BINARY, name='x')
+    u = model.addVar(vtype=GRB.INTEGER, name='u')
+    d = model.addVar(vtype=GRB.INTEGER, name='d')
+    z = model.addVar(vtype=GRB.INTEGER, name='z')
+
+    # add constraints
+    model.addConstr(gp.quicksum(x[i] for i in range(n)) == k)
+    for group, value in portion.items():
+        model.addConstr(gp.quicksum(x[i] * Lc[i].count(group) for i in range(n)) == value)
+    model.addConstr(u == gp.quicksum(x[i] * U_cost[i] for i in range(n)))
+    model.addConstr(d == gp.quicksum((1 - x[i]) * D_cost[i] for i in range(n)))
+    model.addGenConstrMax(z, [u, d])
+
+    # optimize
+    model.setObjective(z, GRB.MINIMIZE)
+    model.optimize()
+
+    # output
+    # for v in model.getVars():
+    #     print(v)
+    ballotChange = model.objVal
+    return ballotChange

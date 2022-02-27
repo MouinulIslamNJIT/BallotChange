@@ -1,4 +1,12 @@
 from findBallotChange import *
+import numpy as np
+from array import *
+import gurobipy as gp
+from gurobipy import GRB
+import math
+from multiAttributesBallotChange import *
+
+
 def findq(Lv,Lc,a,b):
     cnta = 0
     cntb = 0
@@ -103,7 +111,6 @@ def calculateMargin_multigroup(Lv,Lc,portions):
     else:
         qleft = qmax - 1
         qright = qmin + 1
-        print(qleft, qright)
         while qleft - qright > 1:
             q = (qleft + qright)/2
             Bq, Uq, Dq = FindBallotChangeMulti(Lv,Lc,portions,q)
@@ -115,5 +122,41 @@ def calculateMargin_multigroup(Lv,Lc,portions):
                 Bql, Uql, Dql = FindBallotChangeMulti(Lv,Lc,portions,qleft)
                 Bqr, Uqr, Dqr = FindBallotChangeMulti(Lv,Lc,portions,qright)
                 B3 = min(Bql,Bqr)
-    print(B1,B2,B3)
     margin = min(min(B1,B2),B3)
+    return margin
+
+
+
+def diverse_top_k(Lv,Lc, k, portion):
+    # I contains the all items with their category value;
+    topk = []
+    C = [0 for i in portion]
+    slack = k - sum([np.floor(i) for i in portion])
+    iter = 0
+    while (len(topk) < k):
+        i = Lc[iter]
+        iter += 1
+        if C[i] < np.floor(portion[i]):
+            C[i] += 1
+        elif (C[i] < np.ceil(portion[i]) and slack > 0):
+            C[i] += 1
+            slack -= 1
+    return C
+
+
+
+def calculateMargin_selectTopK(Lv,Lc, K, portion):
+    new_portion = diverse_top_k(Lv,Lc, K, portion)
+    margin = calculateMargin_multigroup(Lv, Lc, new_portion)
+    return margin
+
+
+def AlgOptMFMultiMore(Lv, Lc, k, portions):
+    margin = 10000000
+    Opt_t = -1
+    for t in range(min(Lv), max(Lv) + 1):
+        b = findBallotChangeMultiMore(Lv, Lc, k, portions, t)
+        if margin > b:
+            margin = b
+            Opt_t = t
+    return margin, Opt_t

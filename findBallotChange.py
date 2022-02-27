@@ -95,7 +95,7 @@ def FindBallotChangeMulti(Lv, Lc, a, q):
             Dq = Dq + v
     ballotChange = max(Dq, Uq)
     Bq = ballotChange
-    print("margin at q = ", q, " is = ", ballotChange)
+    #print("margin at q = ", q, " is = ", ballotChange)
 
     Uq_ties = 0
     Dq_ties = 0
@@ -121,7 +121,7 @@ def FindBallotChangeMulti(Lv, Lc, a, q):
                 Dq_ties = Dq_ties + v
         ballotChange_ties = max(Dq_ties, Uq_ties)
 
-    print("margin at q = ", q, " with ties  = ", ballotChange_ties)
+    #print("margin at q = ", q, " with ties  = ", ballotChange_ties)
 
     if ballotChange_ties < ballotChange:
         Dq = Dq_ties
