@@ -1,4 +1,6 @@
 import numpy as np
+
+from calculateMargin import calculateMargin_selectTopK
 from findBallotChange import *
 from calculateMargin import *
 from itertools import permutations
@@ -7,7 +9,6 @@ from array import *
 import gurobipy as gp
 from gurobipy import GRB
 import math
-
 
 
 def dfs(i, attrDict, k, featureLists, portions):
@@ -20,24 +21,14 @@ def dfs(i, attrDict, k, featureLists, portions):
             newFeatureList.append(tuple(newFeature))
         portions.append(newFeatureList)
         return
-    perm = permutations(attrDict[i].keys())
+    perm = permutations(attrDict[i])
     for j in perm:
         featureLists.append(j)
         dfs(i + 1, attrDict, k, featureLists, portions)
     return
 
 
-# def dfs(attrDict,i,featureList:list,curProb,k,selected):
-#     if i >= len(attrDict):
-#         selected.append(tuple(featureList))
-#         return
-#     for group in attrDict[i]:
-#         featureList.append(group)
-#         dfs(i+1,featureList,curProb,k,selected)
-#     return
-
-
-def cartesianProductCreatorDiverseTopK(Lv,Lc, portion, k):
+def cartesianProductCreatorDiverseTopK(Lv, Lc, portion, k):
     newLc = []
     attrDict = [[] for i in portion]
     for index, i in enumerate(portion):
@@ -46,13 +37,13 @@ def cartesianProductCreatorDiverseTopK(Lv,Lc, portion, k):
                 attrDict[index].append(j)
     portions = []
     dfs(0, attrDict, k, [], portions)
-    for i,j in zip(Lv,Lc):
+    for i, j in zip(Lv, Lc):
         newAttribute = tuple(j)
         newLc.append(newAttribute)
     return newLc, portions
 
 
-def cartesianProductCreatorBallotChange(Lv, Lc, portion, k):
+def cartesianProductCreatorBallotChange(Lc, portion, k):
     newLc = []
     attrDict = [[] for i in portion]
     for index, i in enumerate(portion):
@@ -67,8 +58,8 @@ def cartesianProductCreatorBallotChange(Lv, Lc, portion, k):
     return newLc, portions
 
 
-def cartesianProductDiverseTopK(Lv,Lc, K, portion):
-    newLc, newPortions = cartesianProductCreatorDiverseTopK(Lv,Lc, portion, K)
+def cartesianProductDiverseTopK(Lv, Lc, K, portion):
+    newLc, newPortions = cartesianProductCreatorDiverseTopK(Lv, Lc, portion, K)
     best_ballot_change = int('inf')
     for portion in newPortions:
         newPortion = {}
@@ -77,7 +68,7 @@ def cartesianProductDiverseTopK(Lv,Lc, K, portion):
                 newPortion[i] += 1
             else:
                 newPortion[i] = 1
-        ballot_change = calculateMargin_selectTopK(Lv,newLc, K, newPortion)
+        ballot_change = calculateMargin_selectTopK(Lv, newLc, K, newPortion)
         best_ballot_change = min(ballot_change, best_ballot_change)
     return best_ballot_change
 
@@ -95,6 +86,7 @@ def cartesianProductBallotChange(Lv, Lc, k, portion):
         ballot_change = calculateMargin_multigroup(Lv, newLc, new_portion)
         best_ballot_change = min(ballot_change, best_ballot_change)
     return best_ballot_change
+
 
 def findBallotChangeMultiMore(Lv, Lc, k, portion, t):
     n = len(Lv)

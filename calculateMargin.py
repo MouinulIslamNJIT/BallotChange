@@ -53,28 +53,30 @@ def calculateMargin(Lv,Lc,a,b):
     B2, U, D = findBallotChange(Lv,Lc,qmin,a,b,qmin,qmax)
     B, Umax, Dmin = findBallotChange(Lv,Lc,qmax-1,a,b,qmin,qmax)
     B, Umin, Dmax = findBallotChange(Lv,Lc,qmin+1,a,b,qmin,qmax)
+    # print(Umax,Umin)
+    # print(Dmax,Dmin)
     B3 = 0
+    # print(Dmin,Umin)
     q = -1
     if Dmin > Umax:
         B3 = Dmin
     elif Dmin < Umin and Dmax < Umin:
         B3 = Umin
     else:
-        qleft = qmax - 1
-        qright = qmin + 1
-        print(qleft, qright)
-        while qleft - qright > 1:
+        qright = qmax - 1
+        qleft = qmin + 1
+        while qright - qleft > 0.1:
             q = (qleft + qright)/2
             Bq, Uq, Dq = findBallotChange(Lv,Lc,q,a,b,qmin,qmax)
-            if Dq < Uq:
-                qleft = q
-            else:
-                qright = q
-            if qleft - qright == 1:
-                Bql, Uql, Dql = findBallotChange(Lv,Lc,qleft,a,b,qmin,qmax)
-                Bqr, Uqr, Dqr = findBallotChange(Lv,Lc,qright,a,b,qmin,qmax)
+            if qright - qleft <= 1:
+                Bql, Uql, Dql = findBallotChange(Lv,Lc,int(qleft),a,b,qmin,qmax)
+                Bqr, Uqr, Dqr = findBallotChange(Lv,Lc,int(qright),a,b,qmin,qmax)
                 B3 = min(Bql,Bqr)
-    print(B1,B2,B3)
+            if Dq < Uq:
+                qright = q
+            else:
+                qleft = q
+    # print(B1,B2,B3)
     margin = min(min(B1,B2),B3)
     return margin
 
@@ -97,34 +99,39 @@ def findq_multi(Lv,Lc,portions):
 
 
 def calculateMargin_multigroup(Lv,Lc,portions):
-    qmin, qmax = findq_multi(Lv, Lc, portions)
+    qmin,qmax = findq_multi(Lv, Lc, portions)
     B1, U, D = FindBallotChangeMulti(Lv, Lc, portions,qmax)
     B2, U, D = FindBallotChangeMulti(Lv, Lc, portions,qmin)
     B, Umax, Dmin = FindBallotChangeMulti(Lv,Lc,portions,qmax-1)
     B, Umin, Dmax = FindBallotChangeMulti(Lv,Lc,portions,qmin+1)
-    B3 = 0
+    # print(qmin,qmax)
+    # print(Umin,Umax)
+    # print(Dmin, Dmax)
+    B3 = 1000000
     q = -1
     if Dmin > Umax:
+        print('Dmin')
         B3 = Dmin
     elif Dmin < Umin and Dmax < Umin:
+        print('Umin')
         B3 = Umin
     else:
-        qleft = qmax - 1
-        qright = qmin + 1
-        while qleft - qright > 1:
+        qright = qmax - 1
+        qleft = qmin + 1
+        while qright - qleft > 0.1:
             q = (qleft + qright)/2
             Bq, Uq, Dq = FindBallotChangeMulti(Lv,Lc,portions,q)
-            if Dq < Uq:
-                qleft = q
-            else:
-                qright = q
-            if qleft - qright == 1:
-                Bql, Uql, Dql = FindBallotChangeMulti(Lv,Lc,portions,qleft)
-                Bqr, Uqr, Dqr = FindBallotChangeMulti(Lv,Lc,portions,qright)
+            if qright - qleft <= 1:
+                Bql, Uql, Dql = FindBallotChangeMulti(Lv,Lc,portions,int(qleft))
+                Bqr, Uqr, Dqr = FindBallotChangeMulti(Lv,Lc,portions,int(qright))
                 B3 = min(Bql,Bqr)
+            if Dq < Uq:
+                qright = q
+            else:
+                qleft = q
+
     margin = min(min(B1,B2),B3)
     return margin
-
 
 
 def diverse_top_k(Lv,Lc, k, portion):
@@ -133,7 +140,9 @@ def diverse_top_k(Lv,Lc, k, portion):
     C = [0 for i in portion]
     slack = k - sum([np.floor(i) for i in portion])
     iter = 0
-    while (len(topk) < k):
+    # print(slack)
+    # print(len(Lc))
+    while (len(topk) < k) and iter < len(Lc):
         i = Lc[iter]
         iter += 1
         if C[i] < np.floor(portion[i]):
@@ -141,6 +150,7 @@ def diverse_top_k(Lv,Lc, k, portion):
         elif (C[i] < np.ceil(portion[i]) and slack > 0):
             C[i] += 1
             slack -= 1
+    # print(sum(C),k)
     return C
 
 
@@ -160,3 +170,26 @@ def AlgOptMFMultiMore(Lv, Lc, k, portions):
             margin = b
             Opt_t = t
     return margin, Opt_t
+
+
+
+def findMarginLexi(Lv, Lc, LeximinTopk,k):
+    #create new Lc
+    # if candidate comes form leximin output assign them 0, otherwise assign 1
+    for i in range(len(Lc)):
+        if i in LeximinTopk:
+            Lc[i] = 0
+        else:
+            Lc[i] = 1
+
+    #because we want all from leximin output in top-k.
+    a = [k,0]
+
+    #iterate all q using findBallotChange
+    margin = 10000000
+    for q in range(min(Lv),max(Lv)+1):
+        Bq, Uq, Dq = FindBallotChangeMulti(Lv, Lc, a, q)
+        if margin > Bq:
+            margin = Bq
+    print(margin)
+    return margin

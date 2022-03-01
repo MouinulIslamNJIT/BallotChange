@@ -128,3 +128,6 @@ def FindBallotChangeMulti(Lv, Lc, a, q):
         Uq = Uq_ties
         Bq = ballotChange_ties
     return Bq, Uq, Dq
+
+
+
