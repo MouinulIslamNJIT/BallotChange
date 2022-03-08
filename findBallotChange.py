@@ -50,38 +50,34 @@ def findBallotChange(Lv, Lc, q, a, b, qmin, qmax):
     return Bq, Uq, Dq
 
 
-def FindBallotChangeMulti(Lv, Lc, a, q):
+def FindBallotChangeMulti(Lv, Lc, a:dict, q):
     attrArray = list(set(Lc))
-    attrArray
-
-    LvArray = []
+    LvArray = {}
     for val in attrArray:
-        LvArray.append([i for (i, j) in zip(Lv, Lc) if j == val])
-
-    Lqu = []
-    Lqd = []
-    Lqu_plus_one = []
+        LvArray.setdefault(val,[])
+        LvArray[val] = [i for (i, j) in zip(Lv, Lc) if j == val]
+    Lqu = {}
+    Lqd = {}
+    Lqu_plus_one = {}
     for val in attrArray:
-        Lqu.append([i for i in LvArray[val] if i < q])
-        Lqu_plus_one.append([i for i in LvArray[val] if i < q + 1])
+        # print(val,len(LvArray))
+        Lqu[val] = [i for i in LvArray[val] if i < q]
+        Lqu_plus_one[val] = [i for i in LvArray[val] if i < q + 1]
         lst = [i for i in LvArray[val] if i >= q]
         lst.sort()
-        Lqd.append(lst)
+        Lqd[val] = lst
 
-    aStarq = []
+    aStarq = {}
     for val in attrArray:
-        aStarq.append(len([i for i in LvArray[val] if i >= q]))
-    aStarq
+        aStarq[val] = len([i for i in LvArray[val] if i >= q])
 
-    aStarq_minus_one = []
+    aStarq_minus_one = {}
     for val in attrArray:
-        aStarq_minus_one.append(len([i for i in LvArray[val] if i >= q - 1]))
-    aStarq_minus_one
+        aStarq_minus_one[val] = len([i for i in LvArray[val] if i >= q - 1])
 
-    aStarq_plus_one = []
+    aStarq_plus_one = {}
     for val in attrArray:
-        aStarq_plus_one.append(len([i for i in LvArray[val] if i >= q + 1]))
-    aStarq_plus_one
+        aStarq_plus_one[val] = len([i for i in LvArray[val] if i >= q + 1])
 
     Uq = 0
     Dq = 0
@@ -99,7 +95,7 @@ def FindBallotChangeMulti(Lv, Lc, a, q):
 
     Uq_ties = 0
     Dq_ties = 0
-    ballotChange_ties = 1000000
+    ballotChange_ties = 999999999
     maxqval = -10
     maxdif = -10
     for val in attrArray:

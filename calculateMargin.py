@@ -4,7 +4,6 @@ from array import *
 import gurobipy as gp
 from gurobipy import GRB
 import math
-from multiAttributesBallotChange import *
 import random
 import networkx as nx
 
@@ -85,7 +84,7 @@ def calculateMargin(Lv,Lc,a,b):
 
 
 def findq_multi(Lv,Lc,portions):
-    group_count = [0 for i in portions]
+    group_count = dict.fromkeys(portions.keys(),0)
     qmin = 0
     qmax = 0
     for (c,v) in zip(Lc,Lv):
@@ -137,8 +136,8 @@ def calculateMargin_multigroup(Lv,Lc,portions):
 def diverse_top_k(Lv,Lc, k, portion):
     # I contains the all items with their category value;
     topk = []
-    C = [0 for i in portion]
-    slack = k - sum([np.floor(i) for i in portion])
+    C = dict.fromkeys(portion.keys(),0)
+    slack = k - sum([np.floor(i) for i in portion.values()])
     iter = 0
     # print(slack)
     # print(len(Lc))
@@ -161,35 +160,83 @@ def calculateMargin_selectTopK(Lv,Lc, K, portion):
     return margin
 
 
+
+def findBallotChangeMultiMore(Lv, Lc, a, k, t):
+    n = len(Lv)
+    # calculate weights
+    D_cost = []
+    U_cost = []
+    for v in Lv:
+        if (v >= t):
+            D_cost.append(v - t + 1)
+            U_cost.append(0)
+        else:
+            D_cost.append(0)
+            U_cost.append(t - v)
+
+    # define model
+    model = gp.Model("margin")
+
+    # add variables
+    x = model.addVars(n, vtype=GRB.BINARY, name='x')
+    u = model.addVar(vtype=GRB.INTEGER, name='u')
+    d = model.addVar(vtype=GRB.INTEGER, name='d')
+    z = model.addVar(vtype=GRB.INTEGER, name='z')
+
+    # add constraints
+    model.addConstr(gp.quicksum(x[i] for i in range(n)) == k)
+    for group, value in a.items():
+        model.addConstr(gp.quicksum(x[i] * Lc[i].count(group) for i in range(n)) == value)
+    model.addConstr(u == gp.quicksum(x[i] * U_cost[i] for i in range(n)))
+    model.addConstr(d == gp.quicksum((1 - x[i]) * D_cost[i] for i in range(n)))
+    model.addGenConstrMax(z, [u, d])
+
+    # optimize
+    model.setObjective(z, GRB.MINIMIZE)
+    model.optimize()
+
+    # output
+    # for v in model.getVars():
+    #     print(v)
+    ballotChange = model.objVal
+    return ballotChange
+
+
+
 def AlgOptMFMultiMore(Lv, Lc, k, portions):
-    margin = 999999999
+    margin = float('inf')
     Opt_t = -1
     for t in range(min(Lv), max(Lv) + 1):
-        b = findBallotChangeMultiMore(Lv, Lc, k, portions, t)
+        b = findBallotChangeMultiMore(Lv, Lc, portions, k, t)
         if margin > b:
             margin = b
             Opt_t = t
     return margin, Opt_t
 
 
-
 def findMarginLexi(Lv, Lc, LeximinTopk,k):
     #create new Lc
     # if candidate comes form leximin output assign them 0, otherwise assign 1
-    for i in range(len(Lc)):
+    Lc_new = {}
+    for i in Lc:
+        Lc_new[i]=0
+    for i in Lc:
         if i in LeximinTopk:
-            Lc[i] = 0
+            Lc_new[i] = 0
         else:
-            Lc[i] = 1
+            Lc_new[i] = 1
+    Lc = Lc_new
     #because we want all from leximin output in top-k.
-    a = [k,0]
+    a = {0:k,1:0}
+
     #iterate all q using findBallotChange
-    margin = 999999999
+    margin = float('inf')
     for q in range(min(Lv),max(Lv)+1):
         Bq, Uq, Dq = FindBallotChangeMulti(Lv, Lc, a, q)
+        print("ballot sub = ",Bq, Uq, Dq)
         if margin > Bq:
             margin = Bq
-    # print(margin)
+    print(margin)
     return margin
 
 
@@ -248,7 +295,7 @@ def findAplusR(Lv, Lc, a, t, k):
     return costAR
 
 def AlgMFMulti2(Lv,Lc,a,k):
-    OPT_ar = 999999999
+    OPT_ar = float('inf')
     OPT_t = -1
     Lvunq = list(set(Lv))
     Lvunq.reverse()

@@ -1,10 +1,8 @@
 import numpy as np
-
-from calculateMargin import calculateMargin_selectTopK
+from calculateMargin import diverse_top_k, calculateMargin_multigroup
 from findBallotChange import *
-from calculateMargin import *
 from itertools import permutations
-
+import copy
 from array import *
 import gurobipy as gp
 from gurobipy import GRB
@@ -19,27 +17,28 @@ def dfs(i, attrDict, k, featureLists, portions):
             for y in featureLists:
                 newFeature.append(y[x])
             newFeatureList.append(tuple(newFeature))
-        portions.append(newFeatureList)
+        portions.add(tuple(newFeatureList))
         return
     perm = permutations(attrDict[i])
     for j in perm:
         featureLists.append(j)
         dfs(i + 1, attrDict, k, featureLists, portions)
+        featureLists.pop()
     return
 
-
-def cartesianProductCreatorDiverseTopK(Lv, Lc, portion, k):
+def cartesianProductCreatorDiverseTopK(Lc, portion, k):
     newLc = []
     attrDict = [[] for i in portion]
     for index, i in enumerate(portion):
         for j in i.keys():
             for o in range(i[j]):
                 attrDict[index].append(j)
-    portions = []
+    portions = set()
     dfs(0, attrDict, k, [], portions)
-    for i, j in zip(Lv, Lc):
-        newAttribute = tuple(j)
-        newLc.append(newAttribute)
+    portions = list(portions)
+    for i in Lc:
+        newAttribute = tuple(i)
+        newLc.append([i[0], newAttribute])
     return newLc, portions
 
 
@@ -50,80 +49,98 @@ def cartesianProductCreatorBallotChange(Lc, portion, k):
         for j in i.keys():
             for o in range(i[j]):
                 attrDict[index].append(j)
-    portions = []
+    portions = set()
     dfs(0, attrDict, k, [], portions)
+    portions = list(portions)
     for i in Lc:
         newAttribute = tuple(i)
-        newLc.append([i[0], newAttribute])
+        newLc.append(newAttribute)
     return newLc, portions
 
 
+def allNewFeatures(i,portion,curF,newFeatures):
+    if i >= len(portion):
+        newFeatures[tuple(curF)] = 0
+        return
+    for j in portion[i]:
+        curF.append(j)
+        allNewFeatures(i+1,portion,curF,newFeatures)
+        curF.pop()
+    return
+
+def calculateMargin_selectTopK(Lv,Lc, K, portion):
+    new_portion = diverse_top_k(Lv,Lc, K, portion)
+    margin = calculateMargin_multigroup(Lv, Lc, new_portion)
+    return margin
+
+def checkPortion(newLc,newPortion):
+    Lcfreq = {}
+    for i in newLc:
+        Lcfreq.setdefault(i,0)
+        Lcfreq[i]+=1
+
+    for i in newPortion.keys():
+        if newPortion[i] > 0:
+            if i not in Lcfreq:
+                return False
+            elif newPortion[i] > Lcfreq[i]:
+                return False
+    return True
+
+
+
 def cartesianProductDiverseTopK(Lv, Lc, K, portion):
-    newLc, newPortions = cartesianProductCreatorDiverseTopK(Lv, Lc, portion, K)
-    best_ballot_change = int('inf')
+    newLc, newPortions = cartesianProductCreatorBallotChange(Lc, portion, K)
+    best_ballot_change = 100000000
+    newFeatures = {}
+    allNewFeatures(0,portion,[],newFeatures)
     for portion in newPortions:
-        newPortion = {}
+        new_portion = copy.deepcopy(newFeatures)
         for i in portion:
-            if i in newPortion:
-                newPortion[i] += 1
-            else:
-                newPortion[i] = 1
-        ballot_change = calculateMargin_selectTopK(Lv, newLc, K, newPortion)
+            new_portion[i] += 1
+        if checkPortion(newLc, new_portion):
+            ballot_change = calculateMargin_selectTopK(Lv, newLc, K, new_portion)
+            best_ballot_change = min(ballot_change, best_ballot_change)
+    return best_ballot_change
+
+
+
+def cartesianProductDiverseTopKIndep(Lv, Lc, K, portion):
+    newLc, newPortions = cartesianProductCreatorBallotChange(Lc, portion, K)
+    best_ballot_change = float('inf')
+    newFeatures = {}
+    allNewFeatures(0,portion,[],newFeatures)
+    #portion = np.random.choice(newPortions,1)[0]
+    portion = newPortions[np.random.randint(len(newPortions))]
+    new_portion = copy.deepcopy(newFeatures)
+    for i in portion:
+        new_portion[i] += 1
+    if checkPortion(newLc, new_portion):
+        ballot_change = calculateMargin_selectTopK(Lv, newLc, K, new_portion)
         best_ballot_change = min(ballot_change, best_ballot_change)
     return best_ballot_change
 
 
-def cartesianProductBallotChange(Lv, Lc, k, portion):
-    newLc, newPortions = cartesianProductCreatorBallotChange(Lv, Lc, portion, k)
-    best_ballot_change = int('inf')
-    for portion in newPortions:
-        new_portion = {}
-        for i in portion:
-            if i in new_portion:
-                new_portion[i] += 1
-            else:
-                new_portion[i] = 1
-        ballot_change = calculateMargin_multigroup(Lv, newLc, new_portion)
-        best_ballot_change = min(ballot_change, best_ballot_change)
+
+def cartesianProductMargin(Lv, Lc, k, portion):
+    newLc, newPortions = cartesianProductCreatorBallotChange(Lc, portion, k)
+    best_ballot_change = float('inf')
+    newFeatures = {}
+    allNewFeatures(0,portion,[],newFeatures)
+    for x in newPortions:
+        new_portion = copy.deepcopy(newFeatures)
+        for i in x:
+            new_portion[i] += 1
+        if checkPortion(newLc,new_portion):
+            # Lcdict = {}
+            # idxLc = []
+            # for idx,group in enumerate(set(new_portion.keys())):
+            #     Lcdict[group] = idx
+            # for group in newLc:
+            #     idxLc.append(Lcdict[group])
+            # print(len(new_portion.values()), max(idxLc), len(Lv))
+            ballot_change = calculateMargin_multigroup(Lv, newLc, new_portion)
+            best_ballot_change = min(ballot_change, best_ballot_change)
     return best_ballot_change
 
 
-def findBallotChangeMultiMore(Lv, Lc, k, portion, t):
-    n = len(Lv)
-    # calculate weights
-    D_cost = []
-    U_cost = []
-    for v in Lv:
-        if (v >= t):
-            D_cost.append(v - t + 1)
-            U_cost.append(0)
-        else:
-            D_cost.append(0)
-            U_cost.append(t - v)
-
-    # define model
-    model = gp.Model("margin")
-
-    # add variables
-    x = model.addVars(n, vtype=GRB.BINARY, name='x')
-    u = model.addVar(vtype=GRB.INTEGER, name='u')
-    d = model.addVar(vtype=GRB.INTEGER, name='d')
-    z = model.addVar(vtype=GRB.INTEGER, name='z')
-
-    # add constraints
-    model.addConstr(gp.quicksum(x[i] for i in range(n)) == k)
-    for group, value in portion.items():
-        model.addConstr(gp.quicksum(x[i] * Lc[i].count(group) for i in range(n)) == value)
-    model.addConstr(u == gp.quicksum(x[i] * U_cost[i] for i in range(n)))
-    model.addConstr(d == gp.quicksum((1 - x[i]) * D_cost[i] for i in range(n)))
-    model.addGenConstrMax(z, [u, d])
-
-    # optimize
-    model.setObjective(z, GRB.MINIMIZE)
-    model.optimize()
-
-    # output
-    # for v in model.getVars():
-    #     print(v)
-    ballotChange = model.objVal
-    return ballotChange
