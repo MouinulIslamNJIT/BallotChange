@@ -1,0 +1,256 @@
+import pandas as pd
+import itertools
+from calculateMargin import  calculateMargin_multigroup
+
+#this function calculates portion given a bucket configuration
+#input
+
+#xPaded: padded bucket configuration:
+#[1, 2, 0, 0, 0, 0, 0, 0],
+
+#portionCross: buckets
+# [('Drama', 'en', 'Other_Company'),
+#  ('Drama', 'en', 'American_Company'),
+#  ('Drama', 'other_language', 'Other_Company'),
+#  ('Drama', 'other_language', 'American_Company'),
+#  ('Comedy', 'en', 'Other_Company'),
+#  ('Comedy', 'en', 'American_Company'),
+#  ('Comedy', 'other_language', 'Other_Company'),
+#  ('Comedy', 'other_language', 'American_Company')]
+
+
+#portionList: given fairness constraint
+# [{'Drama': 3, 'Comedy': 1},
+#  {'en': 3, 'other_language': 1},
+#  {'Other_Company': 1, 'American_Company': 3}]
+
+#output: portion for this bucket configuration
+# [{'Drama': 3, 'Comedy': 0},
+#  {'en': 3, 'other_language': 0},
+#  {'Other_Company': 1, 'American_Company': 2}]
+
+#because
+# ('Drama', 'en', 'Other_Company'), = 1
+#('Drama', 'en', 'American_Company') = 2
+
+def calculateProtionCount(xPaded, portionCross,portionList):
+    portionCrossCount = {portionCross[i]:xPaded[i] for i in range(len(portionCross))}
+    portionCountList = []
+    for portion in portionList:
+        p = {i: 0 for i in portion  }
+        portionCountList.append(p)
+    for i in portionCrossCount:
+        for p in range(len(portionCountList)):
+            portionCount = portionCountList[p]
+            portionCount[i[p]] = portionCount[i[p]] + portionCrossCount[i]
+    return portionCountList
+
+
+#this function check if a portionCountList satisfy fairness or not
+# Input
+
+
+# portionCountList  : input portion
+# [{'Drama': 3, 'Comedy': 0},
+#  {'en': 3, 'other_language': 0},
+#  {'Other_Company': 1, 'American_Company': 2}]
+
+
+#portionList: given fairness constraint
+# [{'Drama': 3, 'Comedy': 1},
+#  {'en': 3, 'other_language': 1},
+#  {'Other_Company': 1, 'American_Company': 3}]
+
+#equal = True then check if fairness is fatisfied exactly or not
+# if false check if portion count is less than given
+
+#output:
+#valid:
+# true if valid portion or not
+
+def checkPortion(portionCountList,portionList,equal=False):
+    #print(portionCountList)
+    valid = True
+    for p in range(len(portionCountList)):
+        pCount = portionCountList[p]
+        portion = portionList[p]
+        for i in pCount:
+            if equal:
+                if pCount[i] != portion[i]:
+                    valid = False
+            else:
+                if pCount[i] > portion[i]:
+                    valid = False
+    return valid
+
+# get array of 1 to k repeated by c
+#input:
+
+#lenCross =  C = 2x2x2 = 8
+# k = 4
+
+#output
+# [ [0,1,2,3,4], [0,1,2,3,4],[0,1,2,3,4],[0,1,2,3,4],[0,1,2,3,4],[0,1,2,3,4],[0,1,2,3,4]]
+
+def getAllArray(lenCross,k):
+    n = [k for i in range(lenCross)]
+    arr = [[] for i in range(lenCross)]
+    for i in range(len(n)):
+        for j in range(0,n[i]+1):
+                arr[i].append(j)
+    return arr
+
+# this function creates all possible bucket configurations column by column.
+# after each column it check 2 things
+# (1) if sum is less than k
+# (2) if portion is valid
+
+#input
+
+#pools
+## [ [0,1,2,3,4], [0,1,2,3,4],[0,1,2,3,4],[0,1,2,3,4],[0,1,2,3,4],[0,1,2,3,4],[0,1,2,3,4]]
+
+#portionCross
+# [('Drama', 'en', 'Other_Company'),
+#  ('Drama', 'en', 'American_Company'),
+#  ('Drama', 'other_language', 'Other_Company'),
+#  ('Drama', 'other_language', 'American_Company'),
+#  ('Comedy', 'en', 'Other_Company'),
+#  ('Comedy', 'en', 'American_Company'),
+#  ('Comedy', 'other_language', 'Other_Company'),
+#  ('Comedy', 'other_language', 'American_Company')]
+
+
+#portionList
+# [{'Drama': 3, 'Comedy': 1},
+#  {'en': 3, 'other_language': 1},
+#  {'Other_Company': 1, 'American_Company': 3}]
+
+#lenCross = c = 8
+
+
+#output:
+#all valid configureations that needed to consider
+
+# [[0, 2, 0, 1, 1, 0, 0, 0],
+#  [0, 2, 1, 0, 0, 1, 0, 0],
+#  [0, 3, 0, 0, 0, 0, 1, 0],
+#  [1, 1, 0, 1, 0, 1, 0, 0],
+#  [1, 2, 0, 0, 0, 0, 0, 1]]
+
+def product(pools, portionCross, portionList,lenCross):
+    result = [[]]
+    for pool in pools:
+        r = []
+        for x in result:
+            u = []
+            for y in pool:
+                u.append(x + [y])
+            r.extend(u)
+        rcp = r.copy()
+        for x in r:
+            if sum(x) > k:
+                # print(x)
+                rcp.remove(x)
+                continue
+            xPadded = x + [0] * (lenCross - len(x))
+            portionCountList = calculateProtionCount(xPadded, portionCross, portionList)
+            if checkPortion(portionCountList, portionList) == False:
+                rcp.remove(x)
+        # print(rcp)
+        if len(rcp) > 0:
+            result = rcp
+    resultCp = []
+    for x in result:
+        if sum(x) != k:
+            continue
+        portionCountList = calculateProtionCount(x, portionCross, portionList)
+        if checkPortion(portionCountList, portionList, True):
+            resultCp.append(x)
+    return resultCp
+
+
+# this funciton takes Lv, Lc, portionlist  and uses product function to
+# calculate valid portions and calculate the margin
+
+#output
+#margin
+
+
+def AlgCartOpt(Lv,Lc,portionList):
+    portionCross = []
+    # all cross portions
+    for i in itertools.product(portionList[0],portionList[1],portionList[2]):
+        portionCross.append(i)
+    # print (i)
+
+    lenCross = len(portionCross)
+    arr = getAllArray(lenCross, k)
+    portionCount = product(arr, portionCross, portionList,lenCross)
+
+    # new Lc
+    newLc = []
+    for i in Lc:
+        newAttribute = tuple(i)
+        # if newAttribute[1] == '0':
+        #     newAttribute = (newAttribute[0], 'en', newAttribute[2])
+        # else:
+        #     newAttribute = (newAttribute[0], 'other_language', newAttribute[2])
+        if newAttribute in portionCross:
+            newLc.append(newAttribute)
+    best_ballot_change = 100000000
+    for p in portionCount:
+        new_portion = {portionCross[i]: p[i] for i in range(lenCross)}
+        ballot_change = calculateMargin_multigroup(Lv, newLc, new_portion)
+        if (best_ballot_change > ballot_change):
+            best_ballot_change = ballot_change
+    #print(best_ballot_change)
+    return  best_ballot_change
+
+
+
+# this code read the data and calls algcartopt
+kRange = [10]
+for k in kRange:
+    print("movie lens 5: k = ", k)
+    lexi_margin = 0
+    our_cross = 0
+    ILP = 0
+    indep = 0
+    print("5starML3Attre")
+    for iter in range(8,9):
+        dataStr = 'ballot_data/5starmovl3attr/' + "MovLen_multiAttribute_k=" + str(k) + '_' + str(iter) + "_Data.pkl"
+        ProtionStr = 'ballot_data/5starmovl3attr/' + "MovLen_multiAttribute_k=" + str(k) + '_' + str(iter) + "_Portion.pkl"
+        mov_data = pd.read_pickle(dataStr)
+        portion = pd.read_pickle(ProtionStr)
+        Lv = list(mov_data["Lv"])
+        Lc = list(mov_data['Lc'])
+        portionF1 = dict(portion.iloc[:19].values)
+        portionF2 = dict(portion.iloc[19:21].values)
+        portionF3 = dict(portion.iloc[21:].values)
+        idx_comp = 0
+        idx_dict = {}
+        for x in portionF2:
+            idx_dict[x] = str(idx_comp)
+            idx_comp += 1
+        portion.replace({"party": idx_dict}, inplace=True)
+
+        for i in range(len(Lc)):
+            temp = list(Lc[i])
+            temp[1] = idx_dict[temp[1]]
+            Lc[i] = tuple(temp)
+        idxportionF2 = {}
+        for i in portionF2:
+            idxportionF2[idx_dict[i]] = portionF2[i]
+
+        portionList = [portionF1, idxportionF2, portionF3]
+        ballotChange = AlgCartOpt(Lv,Lc,portionList)
+        print(ballotChange)
+        our_cross = ballotChange + our_cross
+
+    print("avg ballot change = ",our_cross/10)
+
+
+
+
+
